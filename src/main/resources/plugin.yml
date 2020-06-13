@@ -1,0 +1,9 @@
+name: BattleRoyal
+version: ${project.version}
+main: me.miloapplechief.battleroyal.Battleroyal
+api-version: 1.13
+authors: [MiloAppleChief]
+description: Its a battle royal
+commands:
+  battle:
+    usage: /battle
