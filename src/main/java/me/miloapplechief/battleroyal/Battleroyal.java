@@ -1,13 +1,11 @@
 package me.miloapplechief.battleroyal;
 
-import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -30,6 +28,18 @@ import java.util.List;
 
 public final class Battleroyal extends JavaPlugin implements Listener {
 
+    private static class Battler {
+        Player player;
+        int sniperAmmo;
+        int handGunAmmo;
+        int akAmmo;
+        int reload;
+
+        public Battler(Player player) {
+            this.player = player;
+        }
+    }
+
     private static final Location WAITING_LOCATION = new Location(null,16.5, 8, -33.5, 0, 0);
     private static final List<Location> SPAWNS = Arrays.asList(
             new Location(null,2,6,-77,0,0 ),
@@ -48,7 +58,7 @@ public final class Battleroyal extends JavaPlugin implements Listener {
     }
     private int timer;
     private State state;
-    private final List<Player> players = new ArrayList<>();
+    private final List<Battler> battlers = new ArrayList<>();
     private boolean teleporting = false;
 
     @Override
@@ -61,18 +71,20 @@ public final class Battleroyal extends JavaPlugin implements Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
 
+
+
         if (args.length == 1 && args[0].equals("reset")) {
 
 
-            for (Player other : players) {
-                if (other != sender) {
-                    other.sendMessage("" + ChatColor.RED + ChatColor.BOLD + "The battle has been canceled");
+            for (Battler other : battlers) {
+                if (other.player != sender) {
+                    other.player.sendMessage("" + ChatColor.RED + ChatColor.BOLD + "The battle has been canceled");
                 }
             }
 
             sender.sendMessage("" + ChatColor.RED + ChatColor.BOLD + "The battle has been canceled");
             state = State.NOT_ACTIVE;
-            players.clear();
+            battlers.clear();
 
             return true;
         }
@@ -82,7 +94,8 @@ public final class Battleroyal extends JavaPlugin implements Listener {
         }
 
         Player player = (Player) sender;
-        if (players.contains(player)) {
+
+        if (findBattler(player) != null) {
             player.sendMessage("You are already in a battle!");
             return false;
         }
@@ -114,12 +127,13 @@ public final class Battleroyal extends JavaPlugin implements Listener {
     }
 
     private void addPlayer(Player player) {
-        if (players.size() + 1 > SPAWNS.size()) {
+        if (battlers.size() + 1 > SPAWNS.size()) {
             player.setGameMode(GameMode.SPECTATOR);
             player.sendMessage("This game is full but you can still spectate.");
         } else {
-            players.add(player);
-            clearPlayer(player);
+            Battler battler = new Battler(player);
+            battlers.add(battler);
+            clearPlayer(battler);
             player.setGameMode(GameMode.ADVENTURE);
         }
         tpWaiting(player);
@@ -138,11 +152,13 @@ public final class Battleroyal extends JavaPlugin implements Listener {
         }
     }
 
-    private void clearPlayer(Player player) {
+    private void clearPlayer(Battler battler) {
+        Player player = battler.player;
         player.getInventory().clear();
         player.setHealth(20);
         player.setFoodLevel(20);
         player.setExp(0);
+        player.setTotalExperience(0);
         for (PotionEffect effect : player.getActivePotionEffects()) {
             player.removePotionEffect(effect.getType());
         }
@@ -162,18 +178,18 @@ public final class Battleroyal extends JavaPlugin implements Listener {
                 int i = 0;
                 World world = getGameWorld();
 
-                for (Player other : players) {
-                    other.sendTitle("" + ChatColor.GREEN + ChatColor.BOLD + "START","",5,20,5);
+                for (Battler other : battlers) {
+                    other.player.sendTitle("" + ChatColor.GREEN + ChatColor.BOLD + "START","",5,20,5);
                     Location location = locations.get(i).clone();
                     location.setWorld(world);
                     teleporting = true;
                     try {
-                        other.teleport(location);
+                        other.player.teleport(location);
                     } finally {
                         teleporting = false;
                     }
                     clearPlayer(other);
-                    other.setGameMode(GameMode.ADVENTURE);
+                    other.player.setGameMode(GameMode.ADVENTURE);
 
                     ItemStack sniper = new ItemStack(Material.IRON_HOE);
                     ItemStack handGun = new ItemStack(Material.IRON_HORSE_ARMOR);
@@ -200,16 +216,16 @@ public final class Battleroyal extends JavaPlugin implements Listener {
                     item_meta.setLore(item_lore);
                     ak.setItemMeta(item_meta);
 
-                    other.getInventory().addItem(sniper);
-                    other.getInventory().addItem(handGun);
-                    other.getInventory().addItem(ak);
+                    other.player.getInventory().addItem(sniper);
+                    other.player.getInventory().addItem(handGun);
+                    //other.player.getInventory().addItem(ak);
                     i += 1;
                 }
             } else {
                 timer -= 1;
                 scheduleCountdown();
-                for (Player other : players) {
-                    other.sendTitle("" + ChatColor.WHITE + timer, "", 0, 10, 10);
+                for (Battler other : battlers) {
+                    other.player.sendTitle("" + ChatColor.WHITE + timer, "", 0, 10, 10);
                 }
             }
         }, 20);
@@ -248,11 +264,13 @@ public final class Battleroyal extends JavaPlugin implements Listener {
     public void onSniperClick(PlayerInteractEvent e) {
         if (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Player player = e.getPlayer();
+            Battler battler = findBattler(player);
+
             World world = getGameWorld();
 
 
             if (player.getWorld() == world &&
-                    players.contains(player) &&
+                    battler != null &&
                     e.getMaterial() == Material.IRON_HOE &&
                     state == State.PLAYING) {
                 e.setCancelled(true);
@@ -292,27 +310,37 @@ public final class Battleroyal extends JavaPlugin implements Listener {
         killPlayer(e.getEntity());
     }
 
-    private void killPlayer(Player looser) {
-        if (players.contains(looser)) {
-            players.remove(looser);
-            looser.setGameMode(GameMode.SPECTATOR);
-            looser.sendMessage(ChatColor.RED + "You died!");
-            for (Player other : looser.getWorld().getPlayers()) {
-                if (other != looser) {
-                    other.sendMessage("" + looser.getDisplayName() + " died!");
+    private Battler findBattler(Player player) {
+        for (Battler other : battlers) {
+            if (other.player == player) {
+                return other;
+            }
+        }
+        return null;
+    }
+
+    private void killPlayer(Player loser) {
+        Battler battlerLoser = findBattler(loser);
+        if (battlerLoser != null) {
+            battlers.remove(battlerLoser);
+            loser.setGameMode(GameMode.SPECTATOR);
+            loser.sendMessage(ChatColor.RED + "You died!");
+            for (Player other : loser.getWorld().getPlayers()) {
+                if (other != loser) {
+                    other.sendMessage("" + loser.getDisplayName() + " died!");
                 }
             }
-            if (players.size() == 1) {
+            if (battlers.size() == 1) {
 
-                Player winner = players.get(0);
-                for (Player other : looser.getWorld().getPlayers()) {
+                Player winner = battlers.get(0).player;
+                for (Player other : loser.getWorld().getPlayers()) {
                     if (other != winner) {
                         other.sendTitle("" + ChatColor.GREEN + winner.getDisplayName() + " wins!!!", "", 1,59,20);
                     } else {
                         other.sendTitle("" + ChatColor.GREEN + "You win!!!", "", 1,59,20);
                     }
                 }
-                players.clear();
+                battlers.clear();
                 state = State.NOT_ACTIVE;
             }
         }
@@ -321,7 +349,9 @@ public final class Battleroyal extends JavaPlugin implements Listener {
     @EventHandler
     private void onPlayerTeleport(PlayerTeleportEvent e) {
         Player player = e.getPlayer();
-        if (players.contains(player) && !(teleporting)) {
+
+        Battler battlerTP = findBattler(player);
+        if (battlerTP != null && !teleporting) {
             player.sendMessage("You can't teleport in the middle of a match!");
             e.setCancelled(true);
         }
