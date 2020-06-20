@@ -175,16 +175,34 @@ public final class Battleroyal extends JavaPlugin implements Listener {
                     clearPlayer(other);
                     other.setGameMode(GameMode.ADVENTURE);
 
-                    ItemStack gun1 = new ItemStack(Material.IRON_HOE);
+                    ItemStack sniper = new ItemStack(Material.IRON_HOE);
+                    ItemStack handGun = new ItemStack(Material.IRON_HORSE_ARMOR);
+                    ItemStack ak = new ItemStack(Material.IRON_AXE);
 
-                    ItemMeta item_meta = gun1.getItemMeta();
-                    item_meta.setDisplayName("" + ChatColor.WHITE + "Hand Gun");
+                    ItemMeta item_meta = sniper.getItemMeta();
+                    item_meta.setDisplayName("" + ChatColor.WHITE + "Sniper");
                     ArrayList<String> item_lore = new ArrayList<>();
                     item_lore.add(ChatColor.GOLD + "Pow!");
                     item_meta.setLore(item_lore);
-                    gun1.setItemMeta(item_meta);
+                    sniper.setItemMeta(item_meta);
 
-                    other.getInventory().addItem(gun1);
+                    item_meta = handGun.getItemMeta();
+                    item_meta.setDisplayName("" + ChatColor.WHITE + "Hand Gun");
+                    item_lore = new ArrayList<>();
+                    item_lore.add(ChatColor.GOLD + "Pow!");
+                    item_meta.setLore(item_lore);
+                    handGun.setItemMeta(item_meta);
+
+                    item_meta = ak.getItemMeta();
+                    item_meta.setDisplayName("" + ChatColor.WHITE + "AK-47");
+                    item_lore = new ArrayList<>();
+                    item_lore.add(ChatColor.GOLD + "Pow!");
+                    item_meta.setLore(item_lore);
+                    ak.setItemMeta(item_meta);
+
+                    other.getInventory().addItem(sniper);
+                    other.getInventory().addItem(handGun);
+                    other.getInventory().addItem(ak);
                     i += 1;
                 }
             } else {
@@ -231,12 +249,13 @@ public final class Battleroyal extends JavaPlugin implements Listener {
         if (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Player player = e.getPlayer();
             World world = getGameWorld();
-            e.setCancelled(true);
+
 
             if (player.getWorld() == world &&
                     players.contains(player) &&
                     e.getMaterial() == Material.IRON_HOE &&
                     state == State.PLAYING) {
+                e.setCancelled(true);
 
                 world.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0F, 1.0F);
 
@@ -313,5 +332,3 @@ public final class Battleroyal extends JavaPlugin implements Listener {
         killPlayer(e.getPlayer());
     }
 }
-
-//upload to git
