@@ -6,14 +6,13 @@ import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Bat;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,8 +29,8 @@ public final class Battleroyal extends JavaPlugin implements Listener {
 
     private static class Battler {
         Player player;
-        int sniperAmmo;
-        int handGunAmmo;
+        int sniperAmmo = 2;
+        int handGunAmmo = 10;
         int akAmmo;
         int reload;
 
@@ -171,56 +170,7 @@ public final class Battleroyal extends JavaPlugin implements Listener {
                 return;
             }
             if (timer == 1) {
-                state = State.PLAYING;
-
-                List<Location> locations = new ArrayList<>(SPAWNS);
-                Collections.shuffle(locations);
-                int i = 0;
-                World world = getGameWorld();
-
-                for (Battler other : battlers) {
-                    other.player.sendTitle("" + ChatColor.GREEN + ChatColor.BOLD + "START","",5,20,5);
-                    Location location = locations.get(i).clone();
-                    location.setWorld(world);
-                    teleporting = true;
-                    try {
-                        other.player.teleport(location);
-                    } finally {
-                        teleporting = false;
-                    }
-                    clearPlayer(other);
-                    other.player.setGameMode(GameMode.ADVENTURE);
-
-                    ItemStack sniper = new ItemStack(Material.IRON_HOE);
-                    ItemStack handGun = new ItemStack(Material.IRON_HORSE_ARMOR);
-                    ItemStack ak = new ItemStack(Material.IRON_AXE);
-
-                    ItemMeta item_meta = sniper.getItemMeta();
-                    item_meta.setDisplayName("" + ChatColor.WHITE + "Sniper");
-                    ArrayList<String> item_lore = new ArrayList<>();
-                    item_lore.add(ChatColor.GOLD + "Pow!");
-                    item_meta.setLore(item_lore);
-                    sniper.setItemMeta(item_meta);
-
-                    item_meta = handGun.getItemMeta();
-                    item_meta.setDisplayName("" + ChatColor.WHITE + "Hand Gun");
-                    item_lore = new ArrayList<>();
-                    item_lore.add(ChatColor.GOLD + "Pow!");
-                    item_meta.setLore(item_lore);
-                    handGun.setItemMeta(item_meta);
-
-                    item_meta = ak.getItemMeta();
-                    item_meta.setDisplayName("" + ChatColor.WHITE + "AK-47");
-                    item_lore = new ArrayList<>();
-                    item_lore.add(ChatColor.GOLD + "Pow!");
-                    item_meta.setLore(item_lore);
-                    ak.setItemMeta(item_meta);
-
-                    other.player.getInventory().addItem(sniper);
-                    other.player.getInventory().addItem(handGun);
-                    //other.player.getInventory().addItem(ak);
-                    i += 1;
-                }
+                startGame();
             } else {
                 timer -= 1;
                 scheduleCountdown();
@@ -229,6 +179,67 @@ public final class Battleroyal extends JavaPlugin implements Listener {
                 }
             }
         }, 20);
+    }
+
+    private void startGame() {
+        state = State.PLAYING;
+
+        List<Location> locations = new ArrayList<>(SPAWNS);
+        Collections.shuffle(locations);
+        int i = 0;
+        World world = getGameWorld();
+
+        for (Battler other : battlers) {
+            other.player.sendTitle("" + ChatColor.GREEN + ChatColor.BOLD + "START","",5,20,5);
+            Location location = locations.get(i).clone();
+            location.setWorld(world);
+            teleporting = true;
+            try {
+                other.player.teleport(location);
+            } finally {
+                teleporting = false;
+            }
+            clearPlayer(other);
+            other.player.setGameMode(GameMode.ADVENTURE);
+
+            ItemStack sniper = new ItemStack(Material.IRON_HOE);
+            ItemStack handGun = new ItemStack(Material.IRON_HORSE_ARMOR);
+            ItemStack ak = new ItemStack(Material.IRON_AXE);
+
+            ItemMeta item_meta = sniper.getItemMeta();
+            item_meta.setDisplayName("" + ChatColor.WHITE + "Sniper");
+            ArrayList<String> item_lore = new ArrayList<>();
+            item_lore.add(ChatColor.GOLD + "Pow!");
+            item_meta.setLore(item_lore);
+            sniper.setItemMeta(item_meta);
+
+            item_meta = handGun.getItemMeta();
+            item_meta.setDisplayName("" + ChatColor.WHITE + "Hand Gun");
+            item_lore = new ArrayList<>();
+            item_lore.add(ChatColor.GOLD + "Pow!");
+            item_meta.setLore(item_lore);
+            handGun.setItemMeta(item_meta);
+
+            item_meta = ak.getItemMeta();
+            item_meta.setDisplayName("" + ChatColor.WHITE + "AK-47");
+            item_lore = new ArrayList<>();
+            item_lore.add(ChatColor.GOLD + "Pow!");
+            item_meta.setLore(item_lore);
+            ak.setItemMeta(item_meta);
+
+            other.player.getInventory().addItem(sniper);
+            other.player.getInventory().addItem(handGun);
+            //other.player.getInventory().addItem(ak);
+
+            other.player.getInventory().setHeldItemSlot(0);
+            updateLevel(other);
+
+            i += 1;
+        }
+    }
+
+    private void updateLevel(Battler other) {
+        updateLevel(other, other.player.getInventory().getItemInMainHand());
     }
 
     private World getGameWorld() {
@@ -261,6 +272,34 @@ public final class Battleroyal extends JavaPlugin implements Listener {
     }
 
     @EventHandler
+    public void onItemChange(PlayerItemHeldEvent event) {
+        Player player = event.getPlayer();
+        Battler battler = findBattler(player);
+        player.sendMessage("test1");
+        if (state == State.PLAYING && battler != null) {
+            ItemStack itemStack = player.getInventory().getItem(event.getNewSlot());
+            updateLevel(battler, itemStack);
+        }
+    }
+
+    private void updateLevel(Battler battler, ItemStack itemStack) {
+        int ammo = 0;
+        if (itemStack != null) {
+            Material switchedItem = itemStack.getType();
+            switch (switchedItem) {
+                case IRON_HOE:
+                    ammo = battler.sniperAmmo;
+                    break;
+                case IRON_HORSE_ARMOR:
+                    ammo = battler.handGunAmmo;
+                    break;
+            }
+        }
+        battler.player.setLevel(ammo);
+        battler.player.sendMessage("test");
+    }
+
+    @EventHandler
     public void onSniperClick(PlayerInteractEvent e) {
         if (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Player player = e.getPlayer();
@@ -275,31 +314,39 @@ public final class Battleroyal extends JavaPlugin implements Listener {
                     state == State.PLAYING) {
                 e.setCancelled(true);
 
-                world.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0F, 1.0F);
+                if (battler.sniperAmmo > 0) {
 
-                Vector rayDirection = player.getEyeLocation().getDirection().normalize();
-                Location rayStart = player.getEyeLocation().add(rayDirection);
-                RayTraceResult result = player.getWorld().rayTrace(rayStart, rayDirection, 400,
-                        FluidCollisionMode.NEVER, true, 0, null);
+                    world.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0F, 1.0F);
 
-                double particleDistance;
-                if (result == null) {
-                    particleDistance = 200;
-                } else {
-                    Location hitLocation = result.getHitPosition().toLocation(world);
-                    world.playSound(hitLocation, Sound.BLOCK_STONE_BREAK, 1.0F, 1.0F);
-                    particleDistance = result.getHitPosition().distance(player.getEyeLocation().toVector());
+                    Vector rayDirection = player.getEyeLocation().getDirection().normalize();
+                    Location rayStart = player.getEyeLocation().add(rayDirection);
+                    RayTraceResult result = player.getWorld().rayTrace(rayStart, rayDirection, 400,
+                            FluidCollisionMode.NEVER, true, 0, null);
 
-                    if (result.getHitEntity() instanceof Player) {
-                        Player target = (Player) result.getHitEntity();
-                        target.damage(3);
+                    double particleDistance;
+                    if (result == null) {
+                        particleDistance = 200;
+                    } else {
+                        Location hitLocation = result.getHitPosition().toLocation(world);
+                        world.playSound(hitLocation, Sound.BLOCK_STONE_BREAK, 1.0F, 1.0F);
+                        particleDistance = result.getHitPosition().distance(player.getEyeLocation().toVector());
+
+                        if (result.getHitEntity() instanceof Player) {
+                            Player target = (Player) result.getHitEntity();
+                            target.damage(3);
+                        }
                     }
-                }
 
-                for (int i = 0; i < particleDistance; i++) {
-                    player.getWorld().spawnParticle(Particle.END_ROD,
-                            rayStart.clone().add(rayDirection.clone().multiply(i)),
-                            1, 0, 0, 0, 0);
+                    for (int i = 0; i < particleDistance; i++) {
+                        player.getWorld().spawnParticle(Particle.END_ROD,
+                                rayStart.clone().add(rayDirection.clone().multiply(i)),
+                                1, 0, 0, 0, 0);
+                    }
+                    battler.sniperAmmo -= 1;
+                    updateLevel(battler);
+                } else {
+                    player.playSound(player.getLocation(), Sound.BLOCK_DISPENSER_FAIL, 1, 1);
+                    player.sendMessage("the gun has no ammo");
                 }
             }
         }
